@@ -1,0 +1,24 @@
+---
+- name: 1.0 Deploy Local YUM Repository on DB Host (192.168.28.30)
+  hosts: db
+  become: yes
+
+  tasks:
+    - name: 1.0.1 Install Apache (httpd) to serve repository files
+      dnf:
+        name: httpd
+        state: latest
+
+    - name: 1.0.2 Link the ISO content to Apache web root
+      # 将 ISO 挂载目录链接到 Apache 的默认文档根目录
+      file:
+        src: /mnt/iso
+        dest: /var/www/html/rocky8
+        state: link
+        force: yes
+
+    - name: 1.0.3 Start and Enable httpd service
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes

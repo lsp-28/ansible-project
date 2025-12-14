@@ -1,0 +1,58 @@
+---
+- name: Configure NFS Server on DB Host
+  hosts: db
+  become: yes
+  vars:
+    nfs_share_path: "/var/www/html"  
+    allow_network: "192.168.28.0/24" # 允许 Web 服务器连接的网段
+
+  tasks:
+    - name: 1. Install NFS Utilities
+      dnf:
+        name: nfs-utils
+        state: present
+
+    - name: 2. Create Shared Directory
+      file:
+        path: "{{ nfs_share_path }}"
+        state: directory
+        mode: '0777'  # 最高权限
+        owner: nobody
+        group: nobody
+
+    - name: 3. Create a test file (index.html)
+      copy:
+        dest: "{{ nfs_share_path }}/index.html"
+        content: "<h1>Welcome to Ansible Web Cluster! (NFS Shared)</h1>"
+        mode: '0644'
+
+    - name: 4. Configure Exports
+      copy:
+        dest: /etc/exports
+        content: |
+          {{ nfs_share_path }} {{ allow_network }}(rw,sync,no_root_squash)
+      notify: Restart NFS
+
+    - name: 5. Start and Enable NFS Service
+      service:
+        name: nfs-server
+        state: started
+        enabled: yes
+
+    - name: 6. Configure Firewall for NFS
+      firewalld:
+        service: "{{ item }}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - nfs
+        - mountd
+        - rpc-bind
+      ignore_errors: yes  # 忽略防火墙未开启的报错
+
+  handlers:
+    - name: Restart NFS
+      service:
+        name: nfs-server
+        state: restarted

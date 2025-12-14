@@ -1,0 +1,40 @@
+---
+- name: Configure Web Server Cluster
+  hosts: web
+  become: yes
+  vars:
+    nfs_server_ip: "192.168.28.30"
+    nfs_share_path: "/var/www/html"
+    local_mount_path: "/var/www/html"
+
+  tasks:
+    - name: 1. Install Web Server (Httpd), PHP and NFS Client
+      dnf:
+        name:
+          - httpd
+          - nfs-utils
+          - php
+          - php-mysqlnd  
+          - php-fpm
+        state: present
+
+    - name: 2. Mount NFS Share from DB Server
+      mount:
+        path: "{{ local_mount_path }}"
+        src: "{{ nfs_server_ip }}:{{ nfs_share_path }}"
+        fstype: nfs
+        state: mounted
+
+    - name: 3. Start and Enable Httpd Service
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: 4. Configure Firewall to allow HTTP (Port 80)
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+        immediate: yes
+      ignore_errors: yes 

@@ -1,0 +1,57 @@
+---
+- name: Deploy MariaDB (Database Server)
+  hosts: db
+  become: yes
+  vars:
+    db_root_password: 'Lsp100487'      # 数据库管理员密码  
+    db_app_name: 'db'                  # 网站将使用的数据库名 
+    db_app_user: 'lsp'                 # 网站将使用的用户名 
+    db_app_pass: '1234567'             # 网站将使用的用户密码 
+
+  tasks:
+    - name: 1. Install MariaDB and Python dependencies
+      dnf:
+        name:
+          - mariadb-server
+          - python3-PyMySQL  # 关键：Ansible 模块需要这个才能控制数据库
+        state: present
+
+    - name: 2. Start and Enable MariaDB Service
+      service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: 3. Set MariaDB Root Password
+      community.mysql.mysql_user:
+        name: root
+        host: localhost
+        password: "{{ db_root_password }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        check_implicit_admin: yes
+        state: present
+
+    - name: 4. Create Application Database
+      community.mysql.mysql_db:
+        name: "{{ db_app_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ db_root_password }}"
+
+    - name: 5. Create Web User and Grant Permissions
+      community.mysql.mysql_user:
+        name: "{{ db_app_user }}"
+        password: "{{ db_app_pass }}"
+        host: '%'  # 允许任何 IP 连接 (比如 web-1, web-2)
+        priv: "{{ db_app_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ db_root_password }}"
+
+    - name: 6. Configure Firewall to allow MySQL (Port 3306)
+      firewalld:
+        service: mysql
+        permanent: yes
+        state: enabled
+        immediate: yes
+      ignore_errors: yes

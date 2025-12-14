@@ -1,0 +1,76 @@
+---
+- name: Configure Nginx Load Balancer
+  hosts: lb
+  become: yes
+  vars:
+    # 定义后端 Web 服务器池
+    web_servers:
+      - 192.168.28.21
+      - 192.168.28.22
+
+  tasks:
+    - name: 1. Install Nginx
+      dnf:
+        name: nginx
+        state: present
+
+    - name: 2. Configure Nginx (Load Balancing)
+      copy:
+        dest: /etc/nginx/nginx.conf
+        # 这里直接重写 nginx.conf，配置一个简单的轮询负载均衡
+        content: |
+          user nginx;
+          worker_processes auto;
+          error_log /var/log/nginx/error.log;
+          pid /run/nginx.pid;
+
+          events {
+              worker_connections 1024;
+          }
+
+          http {
+              include             /etc/nginx/mime.types;
+              default_type        application/octet-stream;
+              sendfile            on;
+              keepalive_timeout   65;
+
+              # --- 负载均衡核心配置 ---
+              upstream backend_cluster {
+                  server {{ web_servers[0] }};
+                  server {{ web_servers[1] }};
+              }
+
+              server {
+                  listen       80 default_server;
+                  listen       [::]:80 default_server;
+                  server_name  _;
+
+                  location / {
+                      proxy_pass http://backend_cluster;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  }
+              }
+          }
+      notify: Restart Nginx
+
+    - name: 3. Start and Enable Nginx Service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: 4. Configure Firewall to allow HTTP (Port 80)
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+        immediate: yes
+      ignore_errors: yes
+
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted

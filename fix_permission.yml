@@ -1,0 +1,22 @@
+---
+- name: 4. Fix Permissions and SELinux Context on YUM Server
+  hosts: db
+  become: yes
+
+  tasks:
+    - name: 4.1 Ensure /var/www/html/rocky8 has correct file permissions
+      # 确保 Apache 对整个路径有读取权限
+      file:
+        path: /var/www/html
+        recurse: yes
+        mode: '0755'
+        
+    - name: 4.2 Set SELinux context for Web Server (if SELinux is partially active)
+      # 告诉 SELinux 这是 httpd 可以读取的文件内容
+      command: "chcon -R -t httpd_sys_content_t /var/www/html/rocky8"
+      # chcon 命令适用于临时更改上下文，如果 SELinux 是 disabled 状态则跳过
+
+    - name: 4.3 Restart httpd service to apply changes
+      systemd:
+        name: httpd
+        state: restarted

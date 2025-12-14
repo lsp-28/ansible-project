@@ -1,0 +1,48 @@
+---
+- name: Deploy Git and Configure SSH
+  hosts: localhost  # 直接在 control 本机执行
+  connection: local
+  gather_facts: yes
+  vars:
+    git_user_name: "lsp-28"        
+    git_user_email: "2289101275@qq.com" 
+
+  tasks:
+    - name: 1. Install Git
+      dnf:
+        name: git
+        state: present
+      become: yes
+
+    - name: 2. Configure Git User Name
+      command: git config --global user.name "{{ git_user_name }}"
+
+    - name: 3. Configure Git User Email
+      command: git config --global user.email "{{ git_user_email }}"
+
+    - name: 4. Ensure .ssh directory exists
+      file:
+        path: ~/.ssh
+        state: directory
+        mode: '0700'
+
+    - name: 5. Generate SSH Key for GitHub (RSA 4096)
+      openssh_keypair:
+        path: ~/.ssh/id_rsa
+        type: rsa
+        size: 4096
+        state: present
+        force: no # 如果已存在则不覆盖
+
+    - name: 6. Display Public Key (Copy this to GitHub)
+      command: cat ~/.ssh/id_rsa.pub
+      register: ssh_key_output
+
+    - name: Show SSH Key
+      debug:
+        msg:
+          - "============================================================"
+          - "请复制下面这串 SSH Key，并添加到 GitHub -> Settings -> SSH Keys"
+          - "============================================================"
+          - "{{ ssh_key_output.stdout }}"
+          - "============================================================"
