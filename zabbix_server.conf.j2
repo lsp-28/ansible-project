@@ -1,0 +1,10 @@
+LogFile=/var/log/zabbix/zabbix_server.log
+DBHost={{ groups['db'][0] }}
+DBName=zabbix
+DBUser=zabbix
+DBPassword=zabbix_pass
+SNMPTrapperFile=/var/log/snmptrap/snmptrap.log
+Timeout=4
+AlertScriptsPath=/usr/lib/zabbix/alertscripts
+ExternalScripts=/usr/lib/zabbix/externalscripts
+LogSlowQueries=3000
